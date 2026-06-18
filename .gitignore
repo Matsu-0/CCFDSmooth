@@ -1,0 +1,9 @@
+.DS_Store
+data_repair/
+*.class
+figure/
+out/
+
+# MTSClean baseline vendor tree (README.md only)
+baseline/DataQualityGroup-MTSClean/**
+!baseline/DataQualityGroup-MTSClean/README.md

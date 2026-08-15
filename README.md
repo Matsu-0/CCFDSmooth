@@ -143,3 +143,4 @@ Reduce `td_len` in `Experiment.java` for a quicker test run.
 
 - **UniClean baseline**: `baseline/UniClean/README.md` — maps Fan et al. (SIGMOD 2011) to `UniCleanRepair.java`.
 - **MTSClean baseline**: `baseline/DataQualityGroup-MTSClean/` — Python constraint-based cleaning; see `experiments/README_JAVA_ALIGNED.md` for Java-aligned RMSE.
+- **TimescaleDB same-database baseline**: `baseline/TimescaleDB/` — Figure 13-style candidate search / smoothing query with time series + constant patterns in one TimescaleDB instance (hypertable + pgvector).

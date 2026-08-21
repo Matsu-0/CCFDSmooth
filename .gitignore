@@ -1,11 +1,30 @@
+# OS
 .DS_Store
-data_repair/
+
+# Build artifacts
 *.class
-figure/
+*.pyc
+__pycache__/
 out/
 
+# Local experiment outputs & tooling
+data_repair/
+figure/
+result/
+scripts/
+run_downstream_experiment.sh
 
-# MTSClean baseline vendor tree (README.md only)
+# Large datasets (keep data/road/)
+data/**
+!data/road/
+!data/road/**
+
+# Vendor baselines (keep README.md only)
 baseline/DataQualityGroup-MTSClean/**
 !baseline/DataQualityGroup-MTSClean/README.md
-baseline/TimescaleDB/
+baseline/TimescaleDB/**
+!baseline/TimescaleDB/README.md
+
+# Downstream Python (keep README.md only)
+code/downstream/**
+!code/downstream/README.md

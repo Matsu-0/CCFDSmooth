@@ -14,22 +14,60 @@ public class LoadData {
     private final ArrayList<ArrayList<Double>> td_cleaned = new ArrayList<>();
     private final ArrayList<ArrayList<Double>> test_td = new ArrayList<>();
 
-    public LoadData(int columnCnt, String tdPath, String constantPatternPath, int td_len, int constantPatternLen) throws FileNotFoundException, ParseException {
+    private final int constantPatternUniverseSize;
+
+    public LoadData(int columnCnt, String tdPath, String constantPatternPath, int td_len, int constantPatternLen)
+            throws FileNotFoundException, ParseException {
+        this(columnCnt, tdPath, constantPatternPath, td_len, constantPatternLen, 14756);
+    }
+
+    public LoadData(int columnCnt, String tdPath, String constantPatternPath, int td_len, int constantPatternLen,
+            int constantPatternUniverseSize) throws FileNotFoundException, ParseException {
         this.columnCnt = columnCnt;
         this.td_len = td_len;
         this.constantPatternLen = constantPatternLen;
+        this.constantPatternUniverseSize = Math.max(1, constantPatternUniverseSize);
         this.loadTimeSeriesData(tdPath);
         this.loadConstantPatternRandom((constantPatternPath));
     }
 
+    private long parseTimestamp(String raw, int rowIndex) {
+        String s = raw.trim();
+        // Strip timezone suffix like ".000+08:00" / "+08:00" / "Z"
+        int plus = s.lastIndexOf('+');
+        int z = s.indexOf('Z');
+        if (z > 10) {
+            s = s.substring(0, z);
+        } else if (plus > 10) {
+            s = s.substring(0, plus);
+        }
+        if (s.contains(".")) {
+            s = s.substring(0, s.indexOf('.'));
+        }
+        String[] patterns = {
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy-M-d HH:mm:ss",
+                "yyyy-MM-dd HH:mm",
+                "M-d HH:mm:ss"
+        };
+        for (String p : patterns) {
+            try {
+                return new SimpleDateFormat(p).parse(s).getTime();
+            } catch (ParseException ignored) {
+            }
+        }
+        // Road-style "0-02-02 15:36:08" or unparsable stamps → sequential ms
+        return rowIndex * 1000L;
+    }
+
     public void loadTimeSeriesData(String filename) throws FileNotFoundException, ParseException {
         Scanner sc = new Scanner(new File(filename));
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         sc.useDelimiter("\\s*(,|\\r|\\n)\\s*"); // set separator
         sc.nextLine();
+        int rowIndex = 0;
         for (int k = td_len; k > 0 && sc.hasNextLine(); --k) {
             String[] line_str = sc.nextLine().split(",");
-            long t = format.parse(line_str[0]).getTime();
+            long t = parseTimestamp(line_str[0], rowIndex);
             this.td_time.add(t);
             ArrayList<Double> values = new ArrayList<>();
             for (int i = 1; i < line_str.length; i++) {
@@ -45,6 +83,7 @@ public class LoadData {
                 values.add(Double.NaN);
             }
             this.td.add(values);
+            rowIndex++;
         }
     }
 
@@ -128,23 +167,27 @@ public class LoadData {
         sc.useDelimiter("\\s*(,|\\r|\\n)\\s*"); // set separator
         sc.nextLine();
 
+        int universe = this.constantPatternUniverseSize;
         Random r = new Random();
         boolean rev = false;
-        int sam = Math.min(constantPatternLen, 14756);
-        if (sam > 14756 / 2) {
+        int sam = Math.min(constantPatternLen, universe);
+        if (sam > universe / 2) {
             rev = true;
-            sam = 14756 - sam;
+            sam = universe - sam;
         }
 
         Map<Integer, String> map = new HashMap<>();
         while (map.size() < sam) {
-            int rand = r.nextInt(14756);
+            int rand = r.nextInt(universe);
             if (!map.containsKey(rand)) map.put(rand, "");
         }
 
         for (int k = 0; sc.hasNextLine(); k++) {
             String[] line_str = sc.nextLine().split(",");
 
+            if (k >= universe) {
+                break;
+            }
             if (rev == map.containsKey(k))
                 continue;
 

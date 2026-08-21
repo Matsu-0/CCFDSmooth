@@ -71,14 +71,6 @@ public class Experiment {
         return new Analysis(columnCnt, td, constantPattern, test_td, td_cleaned, toleranceRate, std);
     }
 
-    public static Analysis ewmaRepair(ArrayList<Long> td_time, ArrayList<ArrayList<Double>> td,
-            ArrayList<ArrayList<Double>> test_td, ArrayList<ArrayList<Double>> constantPattern) {
-        System.out.println("\nEWMA");
-        EWMARepair ewmaRepair = new EWMARepair(td_time, test_td, columnCnt);
-        ArrayList<ArrayList<Double>> td_cleaned = ewmaRepair.getTd_cleaned();
-        return new Analysis(columnCnt, td, constantPattern, test_td, td_cleaned, toleranceRate, std);
-    }
-
     public static Analysis uniCleanRepair(ArrayList<Long> td_time, ArrayList<ArrayList<Double>> td,
             ArrayList<ArrayList<Double>> test_td, ArrayList<ArrayList<Double>> constantPattern) {
         System.out.println("\nUniClean");
@@ -116,7 +108,6 @@ public class Experiment {
         Analysis er = erRepair(td_time, td, test_td, constantPattern);
         Analysis screen = screenRepair(td_time, td, test_td, constantPattern);
         Analysis lsgreedy = lsgreedyRepair(td_time, td, test_td, constantPattern);
-        Analysis ewmaRepair = ewmaRepair(td_time, td, test_td, constantPattern);
         Analysis uniClean = uniCleanRepair(td_time, td, test_td, constantPattern);
 
         ccfd.writeRepairResultToFile("result/engine/fuel_" + td_len + "_ccfd.csv");
@@ -124,7 +115,6 @@ public class Experiment {
         er.writeRepairResultToFile("result/engine/fuel_" + td_len + "_er.csv");
         screen.writeRepairResultToFile("result/engine/fuel_" + td_len + "_screen.csv");
         lsgreedy.writeRepairResultToFile("result/engine/fuel_" + td_len + "_lsgreedy.csv");
-        ewmaRepair.writeRepairResultToFile("result/engine/fuel_" + td_len + "_ewma.csv");
         uniClean.writeRepairResultToFile("result/engine/fuel_" + td_len + "_uniclean.csv");
 
         System.out.println("dirty input points (vs constant pattern, all methods): " + ccfd.getDirtyInputCount());
@@ -135,7 +125,6 @@ public class Experiment {
         System.out.println("er: " + er.getRMSE());
         System.out.println("screen: " + screen.getRMSE());
         System.out.println("lsgreedy: " + lsgreedy.getRMSE());
-        System.out.println("ewma: " + ewmaRepair.getRMSE());
         System.out.println("uniclean: " + uniClean.getRMSE());
 
         System.out.println("\nRepair count (×10^4, dist(test, repaired) > 0):");
@@ -144,7 +133,6 @@ public class Experiment {
         System.out.println("er: " + er.getRepairCountTimes1e4());
         System.out.println("screen: " + screen.getRepairCountTimes1e4());
         System.out.println("lsgreedy: " + lsgreedy.getRepairCountTimes1e4());
-        System.out.println("ewma: " + ewmaRepair.getRepairCountTimes1e4());
         System.out.println("uniclean: " + uniClean.getRepairCountTimes1e4());
 
         System.out.println("\nRepair distance (mean std-dist, test -> repaired):");
@@ -153,7 +141,6 @@ public class Experiment {
         System.out.println("er: " + er.getRepairDistanceMean());
         System.out.println("screen: " + screen.getRepairDistanceMean());
         System.out.println("lsgreedy: " + lsgreedy.getRepairDistanceMean());
-        System.out.println("ewma: " + ewmaRepair.getRepairDistanceMean());
         System.out.println("uniclean: " + uniClean.getRepairDistanceMean());
     }
 }

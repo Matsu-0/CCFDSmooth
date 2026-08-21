@@ -11,9 +11,12 @@ For theoretical proofs, full experimental results, and application evaluation, s
 | Path | Description |
 |------|-------------|
 | `code/` | Java source: data loading, noise injection, repair algorithms, evaluation, and experiment entry points |
+| `code/downstream/` | Downstream application eval (LSTM forecast / DTW–1NN classify) + MTSClean hook |
 | `data/` | Application datasets (e.g. road network time series and constant patterns) |
+| `data_repair/` | Four datasets for repair / downstream apps (engine, gps, weather, road; often local-only) |
 | `baseline/` | External baselines (UniClean, MTSClean, etc.) |
 | `figure/` | Gnuplot scripts and result data for paper figures |
+| `result/downstream/` | Downstream repair CSVs and standalone `.dat` metrics (generated) |
 | `appendix.pdf` | Supplementary material |
 
 ---
@@ -28,24 +31,14 @@ All experiment code lives under `code/`. There is no external build tool; compil
 code/
 ├── Experiment.java                    # Main multi-method comparison experiment
 ├── ExperimentConstantPatternNoise.java  # Constant-pattern noise rate sweep
+├── ExperimentDownstream.java          # Export repairs for Fig.17 downstream apps
 ├── LoadData.java                      # Load time series and constant patterns
 ├── AddNoise.java                      # Inject synthetic noise into time series
 ├── AddConstantPatternNoise.java       # Inject noise into constant patterns
 ├── CalStd.java                        # Per-column standard deviation from clean TD
 ├── Analysis.java                      # RMSE / MAE / repair-cost metrics
+├── downstream/                        # LSTM / DTW-1NN eval + MTSClean hook
 └── Algorithm/
-    ├── CCFDRepair.java                # Proposed global CCFD repair (this work)
-    ├── KNNRepair.java                 # 1-NN over constant patterns
-    ├── EditingRuleRepair.java         # Editing-rule repair
-    ├── UniCleanRepair.java            # UniClean-style three-phase repair
-    ├── SCREEN.java                    # SCREEN smoothness repair
-    ├── Lsgreedy.java                  # Local greedy repair
-    ├── EWMARepair.java                # Exponential weighted moving average
-    └── util/
-        ├── KDTreeUtil.java            # KD-tree over constant patterns
-        ├── ScreenUtil.java
-        ├── LsgreedyUtil.java
-        └── Pair.java
 ```
 
 ### Core modules
@@ -56,7 +49,7 @@ code/
 | `AddNoise` | Builds dirty input `test_td` from clean series or a pre-generated dirty CSV (`pt` point noise or `seg` segment noise). |
 | `AddConstantPatternNoise` | Optionally corrupts constant patterns at a given rate (for robustness experiments). |
 | `CalStd` | Column-wise standard deviation from clean `td`, used to normalize distances and errors. |
-| `Analysis` | Evaluates repair quality and cost. Constant patterns are used for **evaluation filtering** (and by CCFD / KNN / ER / UniClean for repair), not by SCREEN / LsGreedy / EWMA. |
+| `Analysis` | Evaluates repair quality and cost. Constant patterns are used for **evaluation filtering** (and by CCFD / KNN / ER / UniClean for repair), not by SCREEN / LsGreedy. |
 
 ### Repair methods
 
@@ -68,7 +61,6 @@ code/
 | `UniCleanRepair` | uniclean | Yes (cRepair / eRepair / hRepair) |
 | `SCREEN` | screen | No |
 | `Lsgreedy` | lsgreedy | No |
-| `EWMARepair` | ewma | No |
 
 `CCFDRepair` is the main contribution: it builds a KD-tree over constant patterns, selects candidate repairs per timestamp using a temporal window and smoothness threshold η, and resolves cold-start segments via window decomposition.
 
@@ -100,7 +92,7 @@ java -cp code/out Experiment
 6. **Evaluate** — `Analysis` compares each `td_cleaned` against clean `td` (RMSE, MAE) and against `test_td` (repair count, repair distance). Only rows consistent with some constant-pattern tuple are included in accuracy metrics.
 7. **Output** — Metrics printed to stdout; repaired series written to `result/engine/fuel_<td_len>_<method>.csv`.
 
-**Methods invoked:** ccfd, knn, er, screen, lsgreedy, ewma, uniclean (via `ccfdRepair`, `knnRepair`, …, `uniCleanRepair`).
+**Methods invoked:** ccfd, knn, er, screen, lsgreedy, uniclean (via `ccfdRepair`, `knnRepair`, …, `uniCleanRepair`).
 
 ### Constant-pattern noise sweep (`ExperimentConstantPatternNoise.java`)
 
@@ -121,9 +113,54 @@ java -cp code/out ExperimentConstantPatternNoise
 java -cp code/out ExperimentConstantPatternNoise --rates 0,0.05,0.1,0.15,0.2,0.25
 ```
 
+### Downstream applications (`ExperimentDownstream.java` + `code/downstream/`)
+
+**Purpose.** Reproduce the Fig.17-style application study: after cleaning with each method, measure **LSTM forecast RMSE** (Fuel / Weather / Road) and **trajectory classification Accuracy** (GPS). Methods: Dirty, CCFDSmooth, SCREEN, LsGreedy, UniClean, MTSClean.
+
+**Data.** Four datasets under `data_repair/` (`engine`→Fuel, `gps`, `weather`, `road`).
+
+**How it runs (two stages).**
+
+1. **Java repair export** — `ExperimentDownstream` loads each series + constant patterns, injects noise (`--thr` / `--noise-rate`, defaults **thr=3** ≈30% points, **noise_rate=5** ≈5×std offset), then runs Dirty / CCFDSmooth / SCREEN / LsGreedy / UniClean and writes aligned CSVs to `result/downstream/<engine|gps|weather|road>/`.
+2. **Python evaluation** — `code/downstream/run_downstream.py` optionally runs **MTSClean** on the same dirty CSV, then:
+   - Fuel / Weather / Road: train **one** LSTM on clean data; at test time feed each method's series and report z-scored **RMSE** vs clean targets (Dirty inputs → higher RMSE).
+   - GPS: segment trajectories; label modes from clean segments; **1NN** (optional DTW) on repaired segments → **Accuracy**.
+3. **Output** — Standalone `.dat` files under `result/downstream/` (not written into `figure/`):
+
+| File | Metric |
+|------|--------|
+| `fuel_prediction.dat` | RMSE |
+| `weather_prediction.dat` | RMSE |
+| `road_prediction.dat` | RMSE |
+| `gps_classification.dat` | Accuracy |
+| `applications.dat` | All rows combined |
+| `summary.json` | Same metrics as JSON |
+
+Columns in each `.dat`: `Dirty · CCFDSmooth · SCREEN · LsGreedy · UniClean · MTSClean`.
+
+```bash
+# Stage 1 — Java repairs (default thr=3 ≈30% points; noise_rate=5×std larger offset)
+mkdir -p code/out
+javac -d code/out code/*.java code/Algorithm/*.java code/Algorithm/util/*.java
+java -cp code/out ExperimentDownstream --td-len 20000
+# optional: larger offset only — keep thr, raise noise-rate
+# java -cp code/out ExperimentDownstream --td-len 20000 --thr 3 --noise-rate 8
+# optional: contiguous errors — --noise-method seg
+# optional subset: java -cp code/out ExperimentDownstream --td-len 20000 fuel weather
+
+# Stage 2 — MTSClean + LSTM / classification → .dat
+pip install numpy pandas scikit-learn torch tqdm scipy   # once
+python3 code/downstream/run_downstream.py --datasets fuel,gps,weather,road
+
+# Skip MTSClean if only Java methods are needed
+python3 code/downstream/run_downstream.py --skip-mtsclean --datasets fuel
+```
+
+More detail (protocol, flags, dependencies): `code/downstream/README.md`.
+
 ### Evaluation (`Analysis.java`)
 
-Used by both experiments. **RMSE / MAE** use clean `td` as ground truth on rows that are complete and within tolerance of at least one constant-pattern tuple. **Repair count / distance** measure change from `test_td` to `td_cleaned`. Constant patterns filter evaluation rows; SCREEN / LsGreedy / EWMA do not use them during repair.
+Used by the repair-quality experiments. **RMSE / MAE** use clean `td` as ground truth on rows that are complete and within tolerance of at least one constant-pattern tuple. **Repair count / distance** measure change from `test_td` to `td_cleaned`. Constant patterns filter evaluation rows; SCREEN / LsGreedy do not use them during repair.
 
 ---
 
@@ -141,6 +178,7 @@ Reduce `td_len` in `Experiment.java` for a quicker test run.
 
 ## Related work in this repo
 
+- **Downstream applications (Fig.17)**: section *Downstream applications* above; details in `code/downstream/README.md`.
 - **UniClean baseline**: `baseline/UniClean/README.md` — maps Fan et al. (SIGMOD 2011) to `UniCleanRepair.java`.
 - **MTSClean baseline**: `baseline/DataQualityGroup-MTSClean/` — Python constraint-based cleaning; see `experiments/README_JAVA_ALIGNED.md` for Java-aligned RMSE.
 - **TimescaleDB same-database baseline**: `baseline/TimescaleDB/` — Figure 13-style candidate search / smoothing query with time series + constant patterns in one TimescaleDB instance (hypertable + pgvector).

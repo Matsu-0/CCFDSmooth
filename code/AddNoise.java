@@ -104,15 +104,27 @@ public class AddNoise {
         return column;
     }
 
+    private ArrayList<Double> buildNoiseStd() {
+        ArrayList<Double> noise_std = new ArrayList<>();
+        for (int i = 0; i < this.columnCnt; i++) {
+            // Prefer column std; fall back to legacy constants for first two dims when std is tiny.
+            double s = std[i];
+            if (Double.isNaN(s) || s <= 1e-12) {
+                if (i == 0) s = 21.0 / 6;
+                else if (i == 1) s = 11.0 / 6;
+                else s = 1.0;
+            }
+            noise_std.add(s);
+        }
+        return noise_std;
+    }
+
     private void addNoise() {
         Random random = new Random();
         for (int i = 0; i < this.columnCnt; i++) {
             std[i] = Math.sqrt(this.varianceImperative(getColumn(i)));
         }
-        // ArrayList<Double> noise_std = new ArrayList<>(Arrays.asList(21.0 / 6, 11.0 /
-        // 6));
-        ArrayList<Double> noise_std = new ArrayList<>(Arrays.asList(21.0 / 6, 11.0 /
-                6, std[2]));
+        ArrayList<Double> noise_std = buildNoiseStd();
         for (ArrayList<Double> o_tuple : this.origin_td) {
             Random r = new Random();
             int i1 = r.nextInt(10);
@@ -147,7 +159,7 @@ public class AddNoise {
         for (int i = 0; i < this.columnCnt; i++) {
             std[i] = Math.sqrt(this.varianceImperative(getColumn(i)));
         }
-        ArrayList<Double> noise_std = new ArrayList<>(Arrays.asList(21.0 / 6, 11.0 / 6, std[2]));
+        ArrayList<Double> noise_std = buildNoiseStd();
 
         Iterator<ArrayList<Double>> itr = this.origin_td.iterator();
         while (itr.hasNext()) {
@@ -158,8 +170,10 @@ public class AddNoise {
                 for (int i = 0; i < this.columnCnt; i++) {
                     noise.add(noise_std.get(i) * random.nextGaussian() * this.noise_rate);
                 }
-                ArrayList<Double> noise_seg_std = new ArrayList<>(
-                        Arrays.asList(noise.get(0) / 3, noise.get(1) / 3, noise.get(2) / 3));
+                ArrayList<Double> noise_seg_std = new ArrayList<>();
+                for (int i = 0; i < this.columnCnt; i++) {
+                    noise_seg_std.add(noise.get(i) / 3);
+                }
 
                 int seg_len = r.nextInt(10) + 5;
                 while (seg_len-- > 0 && itr.hasNext()) {
@@ -207,6 +221,10 @@ public class AddNoise {
 
     private void writeToTargetFile(String targetFileName) {
         File writeFile = new File(targetFileName);
+        File parent = writeFile.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
 
         try {
             BufferedWriter writeText = new BufferedWriter(new FileWriter(writeFile));
@@ -228,13 +246,17 @@ public class AddNoise {
             writeText.flush();
             writeText.close();
         } catch (IOException e) {
-            System.out.println("Error");
+            System.out.println("Error writing " + targetFileName + ": " + e.getMessage());
         }
     }
 
     private void saveDirtyData() {
         String targetFileName = "data/fuel/repair_results/fuel_" + td_len + "_dirty.csv";
         File writeFile = new File(targetFileName);
+        File parent = writeFile.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
 
         try {
             BufferedWriter writeText = new BufferedWriter(new FileWriter(writeFile));
@@ -256,13 +278,17 @@ public class AddNoise {
             writeText.flush();
             writeText.close();
         } catch (IOException e) {
-            System.out.println("Error");
+            System.out.println("Error writing " + targetFileName + ": " + e.getMessage());
         }
     }
 
     private void saveOriginalData() {
         String targetFileName = "data/fuel/repair_results/fuel_" + td_len + "_original.csv";
         File writeFile = new File(targetFileName);
+        File parent = writeFile.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
 
         try {
             BufferedWriter writeText = new BufferedWriter(new FileWriter(writeFile));
@@ -284,7 +310,7 @@ public class AddNoise {
             writeText.flush();
             writeText.close();
         } catch (IOException e) {
-            System.out.println("Error");
+            System.out.println("Error writing " + targetFileName + ": " + e.getMessage());
         }
     }
 

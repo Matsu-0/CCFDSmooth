@@ -19,7 +19,7 @@ public class AddConstantPatternNoise {
     }
 
     /**
-     * @param seed &gt;= 0 时使用固定种子；&lt; 0 则随机
+     * @param seed use a fixed seed when &gt;= 0; random when &lt; 0
      */
     public static ArrayList<ArrayList<Double>> addNoise(
             ArrayList<ArrayList<Double>> constantPattern,

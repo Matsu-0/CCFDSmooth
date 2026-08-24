@@ -5,11 +5,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 /**
- * constant pattern 噪声率扫描实验（对应 figure 中 Constant Pattern Noise Rate / varying-m）。
- * 固定 TD 加噪与 td_len、constantPatternLen，对每个 constantPatternNoiseRate 从干净 constant pattern 重新加噪后跑各修复方法。
+ * Constant pattern noise rate sweep (figure: Constant Pattern Noise Rate / varying-m).
+ * Fixes TD noise, td_len, and constantPatternLen; for each constantPatternNoiseRate, re-noises the clean constant pattern and runs all repair methods.
  *
- * 运行：java -cp code/out ExperimentConstantPatternNoise
- * 可选参数：--rates 0,0.05,0.1,0.15,0.2,0.25
+ * Run: java -cp code/out ExperimentConstantPatternNoise
+ * Optional: --rates 0,0.05,0.1,0.15,0.2,0.25
  */
 public class ExperimentConstantPatternNoise {
     private static final String tdPath = "data_repair/weather/time_series_data_390598.csv";
@@ -26,9 +26,9 @@ public class ExperimentConstantPatternNoise {
     private static final double[] lower_bound = { -10.0, 0.0, 850.0 };
     private static final double[] upper_bound = { 30.0, 15.0, 950.0 };
 
-    /** 测试 constant pattern 噪声率：0, 0.05, 0.1, 0.15, 0.2, 0.25 */
+    /** Constant pattern noise rates to test: 0, 0.05, 0.1, 0.15, 0.2, 0.25. */
     private static final double[] CONSTANT_PATTERN_NOISE_RATES = { 0.0, 0.05, 0.1, 0.15, 0.2, 0.25 };
-    /** gnuplot x 轴刻度：0.0→1, 0.05→3, …, 0.25→11 */
+    /** gnuplot x-axis ticks: 0.0→1, 0.05→3, …, 0.25→11. */
     private static final int[] PLOT_X_INDEX = { 1, 3, 5, 7, 9, 11 };
 
     private static double[] std;

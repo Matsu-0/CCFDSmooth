@@ -12,14 +12,19 @@ public class Analysis {
     private ArrayList<ArrayList<Double>> test_td = new ArrayList<>();
     private double MAE;
     private double RMSE;
+    /** RMSE after min–max scaling each column to [0, 1] using clean td range. */
+    private double RMSE01;
     private double[] tolerance;
     private double tolerance_rate;
     private double[] std;
-    /** 修复次数：加噪输入与修复输出之间标准化距离 > 0 的时点数（对应 n-cost，再除以 1e4 输出） */
+    /** Per-column min/max from clean td (for [0,1] normalization). */
+    private double[] colMin;
+    private double[] colMax;
+    /** Number of repairs: time points where std-normalized distance between noisy input and repaired output > 0 (n-cost; divided by 1e4 for output). */
     private int repairCount;
-    /** 平均修复距离：sum(dist(test, cleaned)) / n（对应 n-cost-d） */
+    /** Mean repair distance: sum(dist(test, cleaned)) / n (n-cost-d). */
     private double repairDistanceMean;
-    /** 加噪输入中被判定为脏的时点数（各方法相同，仅作参考） */
+    /** Dirty time points in noisy input (same across methods; reference only). */
     private int dirtyInputCount;
 
     private static final double DIST_EPS = 1e-6;
@@ -37,7 +42,9 @@ public class Analysis {
         this.std = std;
         this.MAE = 0d;
         this.RMSE = 0d;
+        this.RMSE01 = 0d;
         this.calTolerance();
+        this.computeColMinMax();
         this.countRepairMetrics();
         this.analysis();
     }
@@ -50,11 +57,19 @@ public class Analysis {
         return String.format("%.3f", RMSE);
     }
 
+    public String getRMSE01() {
+        return String.format("%.3f", RMSE01);
+    }
+
+    public double getRMSE01Value() {
+        return RMSE01;
+    }
+
     public int getRepairCount() {
         return repairCount;
     }
 
-    /** 与 figure/*-n-cost.dat 一致：修复次数 / 10^4 */
+    /** Matches figure/*-n-cost.dat: repair count / 10^4. */
     public String getRepairCountTimes1e4() {
         return String.format("%.4f", repairCount / 10000.0);
     }
@@ -68,7 +83,7 @@ public class Analysis {
     }
 
     /**
-     * 与 CCFDRepair.get_tm_distance / KDTreeUtil 相同：按 std 标准化后的欧氏距离。
+     * Same as CCFDRepair.get_tm_distance / KDTreeUtil: Euclidean distance after std normalization.
      */
     public double getTmDistance(ArrayList<Double> a, ArrayList<Double> b) {
         double sum = 0d;
@@ -85,7 +100,7 @@ public class Analysis {
     }
 
     /**
-     * n-cost：发生修复的时点数；n-cost-d：全序列平均修复距离（含未改动的 0 距离点）。
+     * n-cost: time points with a repair; n-cost-d: mean repair distance over the full series (includes unchanged points with distance 0).
      */
     private void countRepairMetrics() {
         int n = Math.min(td.size(), Math.min(test_td.size(), td_cleaned.size()));
@@ -119,12 +134,50 @@ public class Analysis {
                 for (int j = 0; j < columnCnt; j++) {
                     this.MAE += Math.abs(o_tuple.get(j) - r_tuple.get(j)) / this.std[j];
                     this.RMSE += Math.pow((o_tuple.get(j) - r_tuple.get(j)) / this.std[j], 2);
+                    double no = normalize01(o_tuple.get(j), j);
+                    double nr = normalize01(r_tuple.get(j), j);
+                    this.RMSE01 += Math.pow(no - nr, 2);
                 }
             }
         }
         int columnCnt = consistentCnt * this.columnCnt;
         this.MAE = this.MAE / columnCnt;
         this.RMSE = Math.sqrt(this.RMSE / columnCnt);
+        this.RMSE01 = Math.sqrt(this.RMSE01 / columnCnt);
+    }
+
+    /** Min–max per column from clean td → [0, 1]. Constant columns map to 0. */
+    private void computeColMinMax() {
+        this.colMin = new double[columnCnt];
+        this.colMax = new double[columnCnt];
+        for (int j = 0; j < columnCnt; j++) {
+            double min = Double.POSITIVE_INFINITY;
+            double max = Double.NEGATIVE_INFINITY;
+            for (ArrayList<Double> row : this.td) {
+                double v = row.get(j);
+                if (!Double.isNaN(v)) {
+                    min = Math.min(min, v);
+                    max = Math.max(max, v);
+                }
+            }
+            if (min == Double.POSITIVE_INFINITY) {
+                min = 0d;
+                max = 1d;
+            }
+            this.colMin[j] = min;
+            this.colMax[j] = max;
+        }
+    }
+
+    private double normalize01(double v, int col) {
+        if (Double.isNaN(v)) {
+            return 0d;
+        }
+        double span = this.colMax[col] - this.colMin[col];
+        if (span <= 1e-12) {
+            return 0d;
+        }
+        return (v - this.colMin[col]) / span;
     }
 
     public void calTolerance() {

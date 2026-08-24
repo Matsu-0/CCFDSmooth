@@ -229,7 +229,7 @@ public class CCFDRepair {
                 }
             }
             ArrayList<Double> tuple = td.get(i);
-            ArrayList<Integer> W_i = cal_W(td_time, i); // 获取一个窗口内的元素
+            ArrayList<Integer> W_i = cal_W(td_time, i); // indices of tuples in the window
 
             if (Objects.equals(type, "whole_series")) {
                 if (W_i.size() == 0 || cal_W(td_time, W_i.get(0)).size() == 0) {
@@ -250,7 +250,7 @@ public class CCFDRepair {
                 }
             }
 
-            ArrayList<ArrayList<Double>> C_i = this.cal_C(tuple, td_cleaned, W_i); // 候选集
+            ArrayList<ArrayList<Double>> C_i = this.cal_C(tuple, td_cleaned, W_i); // candidate set
 
             double min_dis = Double.MAX_VALUE;
             ArrayList<Double> repair_tuple = new ArrayList<>();
@@ -275,9 +275,9 @@ public class CCFDRepair {
                 }
             }
 
-            // 确保修复值不为空
+            // ensure repair value is non-empty
             if (repair_tuple.isEmpty()) {
-                // 如果没有找到合适的修复值，使用当前元组作为修复值
+                // fallback: use current tuple if no suitable repair found
                 repair_tuple = tuple;
             }
 

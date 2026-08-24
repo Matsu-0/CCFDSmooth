@@ -18,7 +18,7 @@ public class Experiment {
     private static final String method = "pt"; // pt/seg
     private static final int thr = 3; // 0-10
     private static final double noise_rate = 10.0;
-    /** constant pattern 噪声率：0 表示不加噪；与 ExperimentConstantPatternNoise 扫描实验一致 */
+    /** Constant pattern noise rate: 0 means no noise; aligned with ExperimentConstantPatternNoise sweep. */
     private static final double constantPatternNoiseRate = 0.0;
     static double[] std;
     static double tau = 0.0;
